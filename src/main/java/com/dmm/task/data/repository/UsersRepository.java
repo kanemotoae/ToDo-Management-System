@@ -1,8 +1,8 @@
-package com.example.task.data.repository;
+package com.dmm.task.data.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.example.task.data.entity.Users;
+import com.dmm.task.data.entity.Users;
 
 public interface UsersRepository extends JpaRepository<Users, String> {
 

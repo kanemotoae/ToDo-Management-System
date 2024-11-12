@@ -1,4 +1,4 @@
-package com.example.task.service;
+package com.dmm.task.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -6,8 +6,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.example.task.data.entity.Users;
-import com.example.task.data.repository.UsersRepository;
+import com.dmm.task.data.entity.Users;
+import com.dmm.task.data.repository.UsersRepository;
+import com.dmm.task.service.AccountUserDetails;
 
 @Service // Spring管理Beanであることを指定
 public class AccountUserDetailsService implements UserDetailsService {

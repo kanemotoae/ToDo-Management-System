@@ -1,4 +1,4 @@
-package com.example.task.data.entity;
+package com.dmm.task.data.entity;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
