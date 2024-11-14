@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+	<head>
+		<meta charset="UTF-8">
+		<title>UserPage</title>
+		<style>
+		li {
+		 list-style: none;
+		}
+		
+		.form {
+		 width: 700px;
+		 padding: 5px;
+		 background-color: #FFEFE0;
+		 border: 2px solid #552200;
+		 border-width: 0px 2px 2px 0px;
+		 border-radius: 5px;
+		}
+		
+		.line {
+		 display: inline-block;
+		 width: 100%;
+		 border: 1px solid #999;
+		 border-width: 0px 0px 1px 0px;
+		}
+		
+		.post {
+		 border: solid 2px skyblue;
+		 padding: 5px;
+		 border-radius: 5px;
+		 margin: 2em 0;
+		 width: 698px
+		}
+		</style>
+	</head>
+	<body>
+		<h1>掲示板</h1>
+		<form method="post" th:action="@{/logout}">
+			<input type="submit" value="ログアウト">
+		</form>
+		<div class="form">
+			<form method="post" th:object="${postForm}" th:action="@{/posts/create}">
+				<ul>
+					<li>タイトル：<input type="text" name="title" th:field="*{title}"><span th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></span></li>
+					<li class="line"></li>
+					<li style="display: table;"><span style="display: table-cell; vertical-align: top;">内容:</span><textarea name="text" cols="80" rows="10" th:field="*{text}"></textarea><br><span th:if="${#fields.hasErrors('text')}" th:errors="*{text}"></span></li>
+					<li class="line"></li>
+					<li><input type="submit" value="投稿"></li>
+				</ul>
+			</form>
+		</div>
+		
+		<div th:each="post : ${posts}" class="post">
+			<div>
+				<span th:text="${post.name}"></span> <span th:text="${post.title}"></span>
+				<span th:text="${#temporals.format(post.date, 'yyyy/MM/dd HH:mm:ss')}"></span>
+			</div>
+			<div>
+				<span th:text="${post.text}"></span>
+			</div>
+			<div sec:authorize="hasRole('ADMIN')">
+				<form th:action="@{'/posts/delete/' + ${post.id}}" th:method="post">
+					<input type="submit" value="削除">
+				</form>
+			</div>
+		</div>
+	</body>
+</html>

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import com.dmm.task.data.entity.Users;
 import com.dmm.task.data.repository.UsersRepository;
-import com.dmm.task.service.AccountUserDetails;
 
 @Service // Spring管理Beanであることを指定
 public class AccountUserDetailsService implements UserDetailsService {
