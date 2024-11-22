@@ -3,12 +3,15 @@ package com.dmm.task.controller;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import com.dmm.task.data.entity.Tasks;
 
 @Controller
 public class TaskController {
@@ -16,11 +19,11 @@ public class TaskController {
     @GetMapping("/main")
     public String main(Model model) {
         // カレンダー生成処理
-        List<List<LocalDate>> calendar = generateCalendar(2024, 11);
+        List<List<LocalDate>> month = generateCalendar(2024, 11);
+        MultiValueMap<LocalDate, Tasks> tasks = new LinkedMultiValueMap<LocalDate, Tasks>();
 
         // "matrix" と "tasks" を連携
-        model.addAttribute("matrix", calendar);
-        model.addAttribute("tasks", Collections.emptyList());
+        model.addAttribute("tasks", tasks);
 
         return "main";
     }
