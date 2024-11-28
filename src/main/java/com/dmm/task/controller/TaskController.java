@@ -1,4 +1,3 @@
-
 package com.dmm.task.controller;
 
 import java.time.LocalDate;
@@ -6,41 +5,89 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.dmm.task.data.entity.Tasks;
 import com.dmm.task.data.repository.TasksRepository;
+import com.dmm.task.form.TaskForm;
+import com.dmm.task.service.AccountUserDetails;
+
 
 @Controller
 public class TaskController {
 
-    @Autowired
-    private TasksRepository repo;
+    @Autowired //依存性の注入
+    private TasksRepository repo; //repo(変数名)にはDB操作を行うためのインスタンス(オブジェクト)が格納⇒DB操作を簡潔化
     
-    @GetMapping("/main")
-    public String tasks(Model model) {
-        int year = LocalDate.now().getYear();
-        int month = LocalDate.now().getMonthValue();
-        String yearMonth = String.format("%d年%02d月", year, month);
-        model.addAttribute("month", yearMonth);  // 'month' をHTMLに渡す
+    
+    
+//★------------------------------------------------------------------------------------------------------------------★
+    
+    
+    
+    /**
+     * カレンダー表示機能 , 月表示の左右に前月、翌月へのリンクを表示
+     * 
+     * @param date  指定日付（オプション）
+     * @param model モデル
+     * @return 遷移先
+     */
+    
+    
+    
+    @GetMapping("/main") /*ブラウザが/mainを呼んだ時実行される処理
+    					HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
+    
+           //↓メソッドが返す型                                              ↓dateの型
+    public String tasks(@RequestParam(required = false, defaultValue = "") String date, Model model) {
+        LocalDate firstDayOfMonth; /*引数はdateとmodelオブジェクト
+        
+         							@RequestParam:HTTPリクエストのURLに含まれるクエリパラメータ(?date=2024-11-01)
+         							(dateパラメータ)をメソッドの引数として取得する⇒dateに2024-11-01が渡される
+         							
+         							required = false : パラメータがリクエストに必ず含まれていなくてもよい
+         							defaultValue = "" : 含まれていないとき、dateは空の文字""として処理される
+         							
+         							Model model : Model は、Spring MVC の Model オブジェクト
+         							コントローラーメソッド内でビュー（HTMLテンプレート）にデータを渡す
+         							model.addAttribute() を使うことで、HTMLテンプレートで渡したデータを表示することが可能
+         							
+         							LocalDate型のfirstDayOfMonth(変数名)変数を宣言**/
+        
+        if (date.isEmpty()) {
+            firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
+        } else {
+            firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
+        } //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
      
+
+        int year = firstDayOfMonth.getYear();
+        int month = firstDayOfMonth.getMonthValue();
+        String yearMonth = String.format("%d年%02d月", year, month);
+        model.addAttribute("month", yearMonth);
+
         // カレンダーを格納する2次元リスト
         List<List<LocalDate>> monthList = new ArrayList<>();
-        
-        // その月の1日を取得
-        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
+
         // 月の最終日を取得
         LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
-        
+
         // カレンダーの開始日（前月の最後の週の月曜日）
         LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
         // カレンダーの終了日（翌月の最初の週の土曜日）
         LocalDate endDate = lastDayOfMonth.plusDays(6 - lastDayOfMonth.getDayOfWeek().getValue());
-        
+
         // カレンダーの各日付を週ごとに分けて格納
         List<LocalDate> week = new ArrayList<>();
         LocalDate currentDate = startDate;
@@ -52,24 +99,149 @@ public class TaskController {
             }
             currentDate = currentDate.plusDays(1);
         }
-        
-        // タスクの取得
-        List<Tasks> tasks = repo.findAll(); // すべてのタスクを取得
+
+        // タスクの取得とマッピング
+        List<Tasks> tasks = repo.findAll(); 
         MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
-        
-        // 日付に紐づけてタスクをマッピング
         for (Tasks task : tasks) {
             taskMap.add(task.getDate().toLocalDate(), task);
         }
-        
-        // モデルにデータを追加
-        LocalDate prev = firstDayOfMonth.minusMonths(1);
-        LocalDate next = lastDayOfMonth.plusMonths(1);
-        model.addAttribute("prev", prev);  // 前月をHTMLに渡す
-        model.addAttribute("next", next);  // 次月をHTMLに渡す
-        model.addAttribute("matrix", monthList); // カレンダー（2次元リスト）
-        model.addAttribute("tasks", taskMap);    // タスク
-        
+
+        // 月表示の前後リンク
+        LocalDate prev = firstDayOfMonth.minusMonths(1); 
+        LocalDate next = firstDayOfMonth.plusMonths(1); 
+
+        model.addAttribute("prev", prev);
+        model.addAttribute("next", next);
+        model.addAttribute("matrix", monthList);
+        model.addAttribute("tasks", taskMap);
+
         return "/main";
+    }
+
+    
+    
+//★------------------------------------------------------------------------------------------------------------------★
+    
+    
+    
+    /**
+     * タスク登録画面表示機能
+     * 
+     * @param date クリックされた日付
+     * @param model モデル
+     * @return 遷移先
+     */
+    
+    
+    
+    @GetMapping("/main/create/{date}")
+    public String showCreateTaskForm(@PathVariable LocalDate date, Model model) {
+        TaskForm taskForm = new TaskForm();
+        taskForm.setDate(date.atStartOfDay()); 
+        model.addAttribute("taskForm", taskForm);
+        return "/createTask"; 
+    }
+
+    
+    
+//★------------------------------------------------------------------------------------------------------------------★
+
+    
+    
+    /**
+     * タスク登録機能
+     * 
+     * @param taskForm フォームデータ
+     * @param bindingResult バリデーション結果
+     * @param user ユーザー情報
+     * @param model モデル
+     * @return 遷移先
+     */
+    
+    
+    
+    @PostMapping("/main/create")
+    public String create(@Validated TaskForm taskForm, BindingResult bindingResult,
+                         @AuthenticationPrincipal AccountUserDetails user, Model model) {
+        if (bindingResult.hasErrors()) {
+            List<Tasks> list = repo.findAll(Sort.by(Sort.Direction.DESC, "id"));
+            model.addAttribute("tasks", list);
+            model.addAttribute("taskForm", taskForm);
+            return "/createTask";
+        }
+
+        Tasks task = new Tasks();
+        task.setName(user.getName());
+        task.setTitle(taskForm.getTitle());
+        task.setText(taskForm.getText());
+        task.setDate(taskForm.getDate());
+
+        repo.save(task);
+        return "redirect:/main";
+    }
+
+    
+
+//★------------------------------------------------------------------------------------------------------------------★
+
+    
+    
+    /**
+     * タスク編集画面表示機能
+     * 
+     * @param id タスクID
+     * @param model モデル
+     * @return 遷移先
+     */
+    
+    
+    
+    @GetMapping("/main/edit/{id}")
+    public String showEditForm(@PathVariable Integer id, Model model) {
+        Tasks task = repo.findById(id).orElseThrow(() -> new RuntimeException("Task not found"));
+
+        TaskForm taskForm = new TaskForm();
+        taskForm.setTitle(task.getTitle());
+        taskForm.setText(task.getText());
+        taskForm.setDate(task.getDate());
+
+        model.addAttribute("taskForm", taskForm);
+        model.addAttribute("task", task);
+
+        return "/edit";  
+    }
+
+    
+  
+//★------------------------------------------------------------------------------------------------------------------★    
+
+    
+    
+    /**
+     * タスク編集機能
+     * 
+     * @param id タスクID
+     * @param taskForm フォームデータ
+     * @param bindingResult バリデーション結果
+     * @return 遷移先
+     */
+    
+    
+    
+    @PostMapping("/main/edit/{id}")
+    public String editTask(@PathVariable Integer id, @Validated TaskForm taskForm, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return "/edit"; 
+        }
+
+        Tasks task = repo.findById(id).orElseThrow(() -> new IllegalArgumentException("Invalid task ID: " + id));
+        task.setTitle(taskForm.getTitle());
+        task.setText(taskForm.getText());
+        task.setDate(taskForm.getDate());
+        task.setDone(taskForm.isDone());
+
+        repo.save(task);
+        return "redirect:/main";
     }
 }
