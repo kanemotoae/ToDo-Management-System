@@ -39,9 +39,9 @@ public class TaskController {
     /**
      * カレンダー表示機能 , 月表示の左右に前月、翌月へのリンクを表示
      * 
-     * @param date  指定日付（オプション）
-     * @param model モデル
-     * @return 遷移先
+     * 
+     *
+     *
      */
     
     
@@ -126,37 +126,52 @@ public class TaskController {
     
     
     /**
-     * タスク登録画面表示機能
+     * タスク登録機能
      * 
-     * @param date クリックされた日付
-     * @param model モデル
-     * @return 遷移先
+     * 
+     * 
+     * 
      */
     
     
     
+    /*タスク登録画面に遷移する際には、選択した日付が必要なので {date}が必要
+    一方で、フォーム送信時はデータが taskForm に含まれているため、{date} は不要**/
+    
+    //GET画面表示、POSTDB保存
+    
+    
+    
     @GetMapping("/main/create/{date}")
-    public String showCreateTaskForm(@PathVariable LocalDate date, Model model) {
+    public String creates(@PathVariable String date,Model model) {
+    	 LocalDate localDate = LocalDate.parse(date);
+        // 日付を解析
+        List<Tasks> list = repo.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        model.addAttribute("tasks", list);
+
+        // タスクフォームに日付をセット
         TaskForm taskForm = new TaskForm();
-        taskForm.setDate(date.atStartOfDay()); 
-        model.addAttribute("taskForm", taskForm);
-        return "/createTask"; 
+        taskForm.setDate(localDate.atStartOfDay()); // 日付を設定
+        model.addAttribute("taskForm", taskForm); // フォームに日付をセット
+
+        return "create"; // 登録画面を表示
     }
 
-    
+
+
     
 //★------------------------------------------------------------------------------------------------------------------★
 
     
     
     /**
-     * タスク登録機能
+     * タスク表示機能
      * 
-     * @param taskForm フォームデータ
-     * @param bindingResult バリデーション結果
-     * @param user ユーザー情報
-     * @param model モデル
-     * @return 遷移先
+     * 
+     * 
+     * 
+     * 
+     * 
      */
     
     
@@ -168,31 +183,31 @@ public class TaskController {
             List<Tasks> list = repo.findAll(Sort.by(Sort.Direction.DESC, "id"));
             model.addAttribute("tasks", list);
             model.addAttribute("taskForm", taskForm);
-            return "/createTask";
+            return "/create";
         }
 
         Tasks task = new Tasks();
-        task.setName(user.getName());
-        task.setTitle(taskForm.getTitle());
-        task.setText(taskForm.getText());
-        task.setDate(taskForm.getDate());
+        task.setName(user.getName()); // ユーザー名の取得
+        task.setTitle(taskForm.getTitle()); // タイトルの設定
+        task.setText(taskForm.getText()); // 内容の設定
+        task.setDate(taskForm.getDate()); // 日付の設定
 
-        repo.save(task);
-        return "redirect:/main";
+        repo.save(task); // タスク保存
+
+        return "redirect:/main"; // カレンダー画面にリダイレクト
     }
 
-    
 
 //★------------------------------------------------------------------------------------------------------------------★
 
     
     
     /**
-     * タスク編集画面表示機能
+     * タスク編集・削除機能
      * 
-     * @param id タスクID
-     * @param model モデル
-     * @return 遷移先
+     * 
+     * 
+     * 
      */
     
     
@@ -213,20 +228,8 @@ public class TaskController {
     }
 
     
-  
-//★------------------------------------------------------------------------------------------------------------------★    
-
-    
-    
-    /**
-     * タスク編集機能
-     * 
-     * @param id タスクID
-     * @param taskForm フォームデータ
-     * @param bindingResult バリデーション結果
-     * @return 遷移先
-     */
-    
+      
+  //----------------------------?
     
     
     @PostMapping("/main/edit/{id}")
@@ -243,5 +246,11 @@ public class TaskController {
 
         repo.save(task);
         return "redirect:/main";
+        
+        //@PostMapping("/posts/delete/{id}")
+    	//public String delete(@PathVariable Integer id) {
+    		//repo.deleteById(id);
+    		//return "redirect:/posts";
+    	}
     }
-}
+
