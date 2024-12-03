@@ -82,10 +82,12 @@ public class TaskController {
         // 月の最終日を取得
         LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
 
+     // カレンダーの終了日（翌月の最初の週の土曜日）
+        LocalDate endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
         // カレンダーの開始日（前月の最後の週の月曜日）
         LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
-        // カレンダーの終了日（翌月の最初の週の土曜日）
-        LocalDate endDate = lastDayOfMonth.plusDays(6 - lastDayOfMonth.getDayOfWeek().getValue());
+        
+        
 
         // カレンダーの各日付を週ごとに分けて格納
         List<LocalDate> week = new ArrayList<>();
@@ -242,5 +244,5 @@ public class TaskController {
         repo.deleteById(id);  // タスクを削除
         return "redirect:/main";  // 削除後、カレンダー画面へリダイレクト
     }
-    }
+}
 
