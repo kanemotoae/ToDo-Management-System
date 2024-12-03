@@ -1,8 +1,10 @@
 package com.dmm.task.form;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import javax.validation.constraints.Size;
+
+import org.springframework.format.annotation.DateTimeFormat;
 
 import lombok.Data;
 
@@ -17,7 +19,8 @@ public class TaskForm {
     private String text;
 
     // 追加: タスクの日付を保持するフィールド
-    private LocalDateTime date;
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate date;
     
     /*編集画面で完了にチェックを入れると、
     カレンダー上にチェックマーク（✅）を表示する**/
