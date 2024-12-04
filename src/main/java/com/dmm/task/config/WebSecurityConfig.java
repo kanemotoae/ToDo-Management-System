@@ -38,6 +38,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		// 認可の設定
 		http.exceptionHandling().accessDeniedPage("/accessDeniedPage").and().authorizeRequests()
 				.antMatchers("/loginForm").permitAll() // loginFormは、全ユーザからのアクセスを許可
+				.antMatchers("/main/**").hasAnyRole("USER", "ADMIN") //コードを追記、さらにtask⇒mainに追加
+				.antMatchers("/admin/**").hasRole("ADMIN") //追記
 				.anyRequest().authenticated(); // loginForm以外は、認証を求める
 
 		// ログイン設定
@@ -46,7 +48,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 				.loginProcessingUrl("/authenticate") // フォーム認証処理のパス
 				.usernameParameter("userName") // ユーザ名のリクエストパラメータ名
 				.passwordParameter("password") // パスワードのリクエストパラメータ名
-				.defaultSuccessUrl("/main") // ※ ここを変更
+				//.defaultSuccessUrl("/main", true) //追記
+				.defaultSuccessUrl("/main") //無効化
 				.failureUrl("/loginForm?error=true"); // 認証失敗時に遷移するパス
 
 		// ログアウト設定

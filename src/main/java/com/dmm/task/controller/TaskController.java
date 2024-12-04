@@ -50,7 +50,10 @@ public class TaskController {
     					HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
     
            //↓メソッドが返す型                                              ↓dateの型
-    public String tasks(@RequestParam(required = false, defaultValue = "") String date, Model model) {
+    public String tasks(@RequestParam(required = false, defaultValue = "") String date,
+    					@AuthenticationPrincipal AccountUserDetails user , //追加
+    					Model model) {
+    	
         LocalDate firstDayOfMonth; /*引数はdateとmodelオブジェクト
         
          							@RequestParam:HTTPリクエストのURLに含まれるクエリパラメータ(?date=2024-11-01)
@@ -70,11 +73,13 @@ public class TaskController {
         } else {
             firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
         } //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
+        
 
         int year = firstDayOfMonth.getYear();
         int month = firstDayOfMonth.getMonthValue();
         String yearMonth = String.format("%d年%02d月", year, month);
         model.addAttribute("month", yearMonth);
+        
 
         // カレンダーを格納する2次元リスト
         List<List<LocalDate>> monthList = new ArrayList<>();
@@ -100,11 +105,26 @@ public class TaskController {
             }
             currentDate = currentDate.plusDays(1);
         }
+        
+        // ★ 全タスクを取得
+        List<Tasks> allTasks = repo.findAll(); //追加
+
+        // ★ ユーザーの権限に応じてタスクをフィルタリング
+        List<Tasks> filteredTasks = new ArrayList<>();
+        if (user.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
+            filteredTasks = allTasks;  // 管理者はすべてのタスクを表示
+        } else {
+            for (Tasks task : allTasks) {
+                if (task.getName().equals(user.getUsername())) {
+                    filteredTasks.add(task);  // 自分のタスクだけを追加
+                }
+            }
+        }
 
         // タスクの取得とマッピング
-        List<Tasks> list = repo.findAll(); 
+        //List<Tasks> list = repo.findAll(); 無効化 
         MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
-        for (Tasks task : list) {
+        for (Tasks task : filteredTasks) {
             taskMap.add(task.getDate(), task);
         }
 
