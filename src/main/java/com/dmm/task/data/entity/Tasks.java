@@ -20,4 +20,6 @@ public class Tasks {
 	private String text;
 	private LocalDate date;
 	private boolean done;
+	
+	private Integer userId;
 }

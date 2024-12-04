@@ -23,53 +23,32 @@ import com.dmm.task.data.repository.TasksRepository;
 import com.dmm.task.form.TaskForm;
 import com.dmm.task.service.AccountUserDetails;
 
-
 @Controller
 public class TaskController {
 
-    @Autowired //依存性の注入
-    private TasksRepository repo; //repo(変数名)にはDB操作を行うためのインスタンス(オブジェクト)が格納⇒DB操作を簡潔化
-    
-    
-    
-//★------------------------------------------------------------------------------------------------------------------★
-    
-    
-    
-    /**
-     * カレンダー表示機能（月表示の左右に前月、翌月へのリンクを表示）
-     * 
-     * 
-     *
-     *
-     */
-    
-    
-    
-    @GetMapping("/main") /*ブラウザが/mainを呼んだ時実行される処理
-    					HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
-    
-           //↓メソッドが返す型                                              ↓dateの型
-    public String tasks(@RequestParam(required = false, defaultValue = "") String date, Model model) {
-        LocalDate firstDayOfMonth; /*引数はdateとmodelオブジェクト
-        
-         							@RequestParam:HTTPリクエストのURLに含まれるクエリパラメータ(?date=2024-11-01)
-         							(dateパラメータ)をメソッドの引数として取得する⇒dateに2024-11-01が渡される
-         							
-         							required = false : パラメータがリクエストに必ず含まれていなくてもよい
-         							defaultValue = "" : 含まれていないとき、dateは空の文字""として処理される
-         							
-         							Model model : Model は、Spring MVC の Model オブジェクト
-         							コントローラーメソッド内でビュー（HTMLテンプレート）にデータを渡す
-         							model.addAttribute() を使うことで、HTMLテンプレートで渡したデータを表示することが可能
-         							
-         							LocalDate型のfirstDayOfMonth(変数名)変数を宣言**/
-        
+    @Autowired
+    private TasksRepository repo;
+
+    // カレンダー表示機能
+    @GetMapping("/main")
+    public String tasks(@RequestParam(required = false, defaultValue = "") String date, 
+                        @AuthenticationPrincipal AccountUserDetails user, 
+                        Model model) {
+        LocalDate firstDayOfMonth;
         if (date.isEmpty()) {
             firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
         } else {
             firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
-        } //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
+        }
+
+        List<Tasks> list;
+        // adminの場合は全員のタスクを表示
+        if (user.getRole().equals("admin")) {
+            list = repo.findAll();
+        } else {
+            // userの場合は自分のタスクのみ表示
+            list = repo.findByUserId(user.getId());
+        }
 
         int year = firstDayOfMonth.getYear();
         int month = firstDayOfMonth.getMonthValue();
@@ -82,27 +61,24 @@ public class TaskController {
         // 月の最終日を取得
         LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
 
-     // カレンダーの終了日（翌月の最初の週の土曜日）
+        // カレンダーの終了日
         LocalDate endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
-        // カレンダーの開始日（前月の最後の週の月曜日）
+        // カレンダーの開始日
         LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
-        
-        
 
-        // カレンダーの各日付を週ごとに分けて格納
+        // カレンダーの日付を週ごとに分けて格納
         List<LocalDate> week = new ArrayList<>();
         LocalDate currentDate = startDate;
         while (!currentDate.isAfter(endDate)) {
             week.add(currentDate);
             if (week.size() == 7) {
-                monthList.add(new ArrayList<>(week)); // 1週間分を追加
-                week.clear(); // リセット
+                monthList.add(new ArrayList<>(week));
+                week.clear();
             }
             currentDate = currentDate.plusDays(1);
         }
 
         // タスクの取得とマッピング
-        List<Tasks> list = repo.findAll(); 
         MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
         for (Tasks task : list) {
             taskMap.add(task.getDate(), task);
@@ -120,91 +96,47 @@ public class TaskController {
         return "/main";
     }
 
-    
-    
-//★------------------------------------------------------------------------------------------------------------------★
-    
-    
-    
-    /**
-     * タスク登録画面表示機能（日付をクリックするとタスクの登録画面に遷移）
-     * タスク登録機能
-     * 
-     * 
-     * 
-     */
-    
-    
-    
-    /*タスク登録画面に遷移する際には、選択した日付が必要なので {date}が必要
-    一方で、フォーム送信時はデータが taskForm に含まれているため、{date} は不要**/
-    
-    //GETは 画面表示、POSTはDB保存
-    
-    
-    
+    // タスク登録画面表示機能
     @GetMapping("/main/create/{date}")
     public String create(Model model, @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
-    	TaskForm taskForm = new TaskForm();
-        taskForm.setDate(date); // そのまま LocalDate をセット
+        TaskForm taskForm = new TaskForm();
+        taskForm.setDate(date); 
         model.addAttribute("taskForm", taskForm);
         return "create";
     }
-    // @PathVariableはURLのパス部分からデータを取得するアノテーション
 
-
+    // タスク登録機能
     @PostMapping("/main/create")
     public String createTask(@Validated TaskForm taskForm,
-    						@RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
-    						BindingResult bindingResult, 
-                            @AuthenticationPrincipal AccountUserDetails user, Model model) {
+                             @RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+                             BindingResult bindingResult, 
+                             @AuthenticationPrincipal AccountUserDetails user, 
+                             Model model) {
 
-    	
-        // バリデーションエラー(TaskFormで定義)があるかどうかチェック
-    	
+        // バリデーションエラーがあるかどうかチェック
         if (bindingResult.hasErrors()) {
             model.addAttribute("taskForm", taskForm);
-            return "create";  // エラーがあれば登録画面に戻す
+            return "create"; 
         }
 
         // タスクを作成して、必要な情報を設定
         Tasks task = new Tasks();
-        task.setName(user.getName());  // ログインユーザー名をセット
-        task.setTitle(taskForm.getTitle());  // タイトルをフォームから設定
-        task.setText(taskForm.getText());  // テキストをフォームから設定
-        task.setDate(taskForm.getDate());  // フォームから受け取った日付を設定
+        task.setName(user.getName());
+        task.setTitle(taskForm.getTitle());
+        task.setText(taskForm.getText());
+        task.setDate(taskForm.getDate()); 
+        task.setUserId(user.getId()); // ユーザーIDをセット
 
         // タスクを保存
         repo.save(task);
 
-        return "redirect:/main";  // 保存後、カレンダー画面へリダイレクト
+        return "redirect:/main"; 
     }
 
-
-
-
-
-
-
-
-//★------------------------------------------------------------------------------------------------------------------★
-
-    
-    
-    /**
-     * タスク編集・削除機能
-     * 
-     * 
-     * 
-     * 
-     */
-    
-    
-    
+    // タスク編集・削除機能
     @GetMapping("/main/edit/{id}")
     public String edit(@PathVariable Integer id, Model model) {
- 
-        Tasks task = repo.findById(id).get();  // get()で必ず値を取得
+        Tasks task = repo.findById(id).orElse(null); 
 
         // TaskFormをセット
         TaskForm taskForm = new TaskForm();
@@ -218,31 +150,21 @@ public class TaskController {
         return "/edit";
     }
 
-
-
-    
-    
     @PostMapping("/main/edit/{id}")
     public String editTask(@PathVariable Integer id, @Validated TaskForm taskForm, Model model) {
-       
+        Tasks task = repo.findById(id).orElse(null); 
+        task.setTitle(taskForm.getTitle());
+        task.setText(taskForm.getText());
+        task.setDate(taskForm.getDate());
+        task.setDone(taskForm.isDone());
 
-        Tasks task = repo.findById(id).get();  // タスクを取得
-        task.setTitle(taskForm.getTitle());    // タイトルを更新
-        task.setText(taskForm.getText());      // テキストを更新
-        task.setDate(taskForm.getDate());      // 日付を更新
-        task.setDone(taskForm.isDone());       // 完了フラグを更新
-
-        repo.save(task);  // タスクを保存
-
-        return "redirect:/main";  // 保存後、カレンダー画面へリダイレクト
+        repo.save(task);
+        return "redirect:/main"; 
     }
-    
-    
-    
+
     @PostMapping("/main/delete/{id}")
     public String deleteTask(@PathVariable Integer id) {
-        repo.deleteById(id);  // タスクを削除
-        return "redirect:/main";  // 削除後、カレンダー画面へリダイレクト
+        repo.deleteById(id); 
+        return "redirect:/main"; 
     }
 }
-

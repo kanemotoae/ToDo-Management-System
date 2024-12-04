@@ -15,4 +15,10 @@ public class Users {
 	public String password;
 	public String name;
 	public String roleName;
+	
+	 private Integer id; // IDフィールドを追加
+	    
+	    public Integer getId() {
+	        return id; // idフィールドを返す
+	    }
 }
