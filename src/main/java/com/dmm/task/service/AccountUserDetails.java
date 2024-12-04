@@ -14,10 +14,6 @@ public class AccountUserDetails implements UserDetails { // UserDetailsを実装
 	public AccountUserDetails(Users user) {
 		this.user = user;
 	}
-	
-	 public Integer getId() {
-	        return user.getId();  // UsersエンティティのgetId()メソッドを呼び出す
-	    }
 	 
 	 public String getRole() {
 	        return user.getRoleName();  // UsersエンティティのroleNameを返す

@@ -32,7 +32,8 @@ public class TaskController {
     // カレンダー表示機能
     @GetMapping("/main")
     public String tasks(@RequestParam(required = false, defaultValue = "") String date, 
-                        @AuthenticationPrincipal AccountUserDetails user, 
+    					@AuthenticationPrincipal AccountUserDetails user, 
+                        @PathVariable Integer id,
                         Model model) {
         LocalDate firstDayOfMonth;
         if (date.isEmpty()) {
@@ -47,7 +48,7 @@ public class TaskController {
             list = repo.findAll();
         } else {
             // userの場合は自分のタスクのみ表示
-            list = repo.findByUserId(user.getId());
+            list = repo.findByUserId(id);
         }
 
         int year = firstDayOfMonth.getYear();
@@ -111,6 +112,7 @@ public class TaskController {
                              @RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
                              BindingResult bindingResult, 
                              @AuthenticationPrincipal AccountUserDetails user, 
+                             @PathVariable Integer id,
                              Model model) {
 
         // バリデーションエラーがあるかどうかチェック
@@ -125,7 +127,7 @@ public class TaskController {
         task.setTitle(taskForm.getTitle());
         task.setText(taskForm.getText());
         task.setDate(taskForm.getDate()); 
-        task.setUserId(user.getId()); // ユーザーIDをセット
+        task.setUserId(task.getId()); // ユーザーIDをセット
 
         // タスクを保存
         repo.save(task);
