@@ -1,6 +1,6 @@
 package com.dmm.task.form;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import javax.validation.constraints.Size;
 
@@ -20,7 +20,7 @@ public class TaskForm {
 
     // 追加: タスクの日付を保持するフィールド
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate date;
+    private LocalDateTime date;
     
     /*編集画面で完了にチェックを入れると、
     カレンダー上にチェックマーク（✅）を表示する**/

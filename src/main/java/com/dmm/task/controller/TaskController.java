@@ -1,6 +1,5 @@
 package com.dmm.task.controller;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,43 +45,45 @@ public class TaskController {
      */
     
     
+    @GetMapping("/main") 
+    /* ブラウザが/mainを呼んだ時実行される処理
+    HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする */
     
-    @GetMapping("/main") /*ブラウザが/mainを呼んだ時実行される処理
-	HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
-public String tasks(@RequestParam(required = false, defaultValue = "") String date,
-@AuthenticationPrincipal AccountUserDetails user, //追加
-Model model) {
+    public String tasks(@RequestParam(required = false, defaultValue = "") String date,
+                        @AuthenticationPrincipal AccountUserDetails user, // 追加
+                        Model model) {
 
-LocalDate firstDayOfMonth;
+        LocalDateTime firstDayOfMonth; // LocalDateTimeとして宣言
 
-/* 引数はdateとmodelオブジェクト */
+        /* 引数はdateとmodelオブジェクト */
 
-if (date.isEmpty()) {
-firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
-} else {
-firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
-} //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
+        if (date.isEmpty()) {
+            firstDayOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0); // LocalDateTimeに変更
+        } else {
+            firstDayOfMonth = LocalDateTime.parse(date).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0); // LocalDateTimeに変更
+        } 
+        // つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
 
-// 月の最終日を取得
-LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
-LocalDateTime fromDateTime = firstDayOfMonth.atStartOfDay(); // 開始日の 00:00:00
-LocalDateTime toDateTime = lastDayOfMonth.atTime(23, 59, 59); // 終了日の 23:59:59
+        // 月の最終日を取得
+        LocalDateTime lastDayOfMonth = firstDayOfMonth.toLocalDate().withDayOfMonth(firstDayOfMonth.toLocalDate().lengthOfMonth()).atStartOfDay().withHour(23).withMinute(59).withSecond(59); 
+        LocalDateTime fromDateTime = firstDayOfMonth; // LocalDateTime
+        LocalDateTime toDateTime = lastDayOfMonth; // LocalDateTime
 
-List<Tasks> tasksList;
-if (user.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
-    // 管理者の場合、すべてのタスクを取得
-    tasksList = repo.findAllByDateBetween(fromDateTime, toDateTime);
-} else {
-    // 一般ユーザーの場合、自分のタスクのみ取得
-    tasksList = repo.findByDateBetween(fromDateTime, toDateTime, user.getUsername());
-}
+        List<Tasks> tasksList;
+        if (user.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
+            // 管理者の場合、すべてのタスクを取得
+            tasksList = repo.findAllByDateBetween(fromDateTime, toDateTime);
+        } else {
+            // 一般ユーザーの場合、自分のタスクのみ取得
+            tasksList = repo.findByDateBetween(fromDateTime, toDateTime, user.getName());
 
+        }
 
-MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
-for (Tasks task : tasksList) {
-    taskMap.add(task.getDate(), task);
-}
-
+        // タスクのマッピング
+        MultiValueMap<LocalDateTime, Tasks> taskMap = new LinkedMultiValueMap<>();
+        for (Tasks task : tasksList) {
+        	 LocalDateTime taskDateTime = task.getDate();
+        	 taskMap.add(taskDateTime, task); }
 
 int year = firstDayOfMonth.getYear();
 int month = firstDayOfMonth.getMonthValue();
@@ -90,16 +91,16 @@ String yearMonth = String.format("%d年%02d月", year, month);
 model.addAttribute("month", yearMonth);
 
 // カレンダーを格納する2次元リスト
-List<List<LocalDate>> monthList = new ArrayList<>();
+List<List<LocalDateTime>> monthList = new ArrayList<>();
 
 // カレンダーの終了日（翌月の最初の週の土曜日）
-LocalDate endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
+LocalDateTime endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
 // カレンダーの開始日（前月の最後の週の月曜日）
-LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
+LocalDateTime startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
 
 // カレンダーの各日付を週ごとに分けて格納
-List<LocalDate> week = new ArrayList<>();
-LocalDate currentDate = startDate;
+List<LocalDateTime> week = new ArrayList<>();
+LocalDateTime currentDate = startDate;
 while (!currentDate.isAfter(endDate)) {
 week.add(currentDate);
 if (week.size() == 7) {
@@ -109,9 +110,10 @@ week.clear(); // リセット
 currentDate = currentDate.plusDays(1);
 }
 
+
 // 月表示の前後リンク
-LocalDate prev = firstDayOfMonth.minusMonths(1);
-LocalDate next = firstDayOfMonth.plusMonths(1);
+LocalDateTime prev = firstDayOfMonth.minusMonths(1);
+LocalDateTime next = firstDayOfMonth.plusMonths(1);
 
 model.addAttribute("prev", prev);
 model.addAttribute("next", next);
@@ -142,20 +144,22 @@ return "/main";
     //GETは 画面表示、POSTはDB保存
     
     
-    
     @GetMapping("/main/create/{date}")
-    public String create(Model model, @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
-    	TaskForm taskForm = new TaskForm();
-        taskForm.setDate(date); // そのまま LocalDate をセット
-        model.addAttribute("taskForm", taskForm);
+    public String create(Model model, 
+                         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime date) {
+        TaskForm taskForm = new TaskForm();
+        taskForm.setDate(date);  // 受け取った LocalDateTime をセット
+        model.addAttribute("taskForm", taskForm);  // ビューに渡す
         return "create";
     }
+
+
     // @PathVariableはURLのパス部分からデータを取得するアノテーション
 
 
     @PostMapping("/main/create")
     public String createTask(@Validated TaskForm taskForm,
-    						@RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+    						@RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime date,
     						BindingResult bindingResult, 
                             @AuthenticationPrincipal AccountUserDetails user, Model model) {
 
@@ -172,7 +176,8 @@ return "/main";
         task.setName(user.getName());  // ログインユーザー名をセット
         task.setTitle(taskForm.getTitle());  // タイトルをフォームから設定
         task.setText(taskForm.getText());  // テキストをフォームから設定
-        task.setDate(taskForm.getDate());  // フォームから受け取った日付を設定
+        task.setDate(taskForm.getDate());  // LocalDateTime をそのままセット
+
 
         // タスクを保存
         repo.save(task);
