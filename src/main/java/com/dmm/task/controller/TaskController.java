@@ -1,6 +1,7 @@
 package com.dmm.task.controller;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,100 +48,79 @@ public class TaskController {
     
     
     @GetMapping("/main") /*ブラウザが/mainを呼んだ時実行される処理
-    					HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
-    
-           //↓メソッドが返す型                                              ↓dateの型
-    public String tasks(@RequestParam(required = false, defaultValue = "") String date,
-    					@AuthenticationPrincipal AccountUserDetails user , //追加
-    					Model model) {
-    	
-        LocalDate firstDayOfMonth; /*引数はdateとmodelオブジェクト
-        
-         							@RequestParam:HTTPリクエストのURLに含まれるクエリパラメータ(?date=2024-11-01)
-         							(dateパラメータ)をメソッドの引数として取得する⇒dateに2024-11-01が渡される
-         							
-         							required = false : パラメータがリクエストに必ず含まれていなくてもよい
-         							defaultValue = "" : 含まれていないとき、dateは空の文字""として処理される
-         							
-         							Model model : Model は、Spring MVC の Model オブジェクト
-         							コントローラーメソッド内でビュー（HTMLテンプレート）にデータを渡す
-         							model.addAttribute() を使うことで、HTMLテンプレートで渡したデータを表示することが可能
-         							
-         							LocalDate型のfirstDayOfMonth(変数名)変数を宣言**/
-        
-        if (date.isEmpty()) {
-            firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
-        } else {
-            firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
-        } //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
-        
+	HTMLのGet(データの取得)リクエストを特定のメソッドにマッピングする**/
+public String tasks(@RequestParam(required = false, defaultValue = "") String date,
+@AuthenticationPrincipal AccountUserDetails user, //追加
+Model model) {
 
-        int year = firstDayOfMonth.getYear();
-        int month = firstDayOfMonth.getMonthValue();
-        String yearMonth = String.format("%d年%02d月", year, month);
-        model.addAttribute("month", yearMonth);
-        
+LocalDate firstDayOfMonth;
 
-        // カレンダーを格納する2次元リスト
-        List<List<LocalDate>> monthList = new ArrayList<>();
+/* 引数はdateとmodelオブジェクト */
 
-        // 月の最終日を取得
-        LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
+if (date.isEmpty()) {
+firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
+} else {
+firstDayOfMonth = LocalDate.parse(date).withDayOfMonth(1);
+} //つまり、/mainで呼び出されたときなどは、1日から始まる当月カレンダーを返す
 
-     // カレンダーの終了日（翌月の最初の週の土曜日）
-        LocalDate endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
-        // カレンダーの開始日（前月の最後の週の月曜日）
-        LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
-        
-        
+// 月の最終日を取得
+LocalDate lastDayOfMonth = firstDayOfMonth.withDayOfMonth(firstDayOfMonth.lengthOfMonth());
+LocalDateTime fromDateTime = firstDayOfMonth.atStartOfDay(); // 開始日の 00:00:00
+LocalDateTime toDateTime = lastDayOfMonth.atTime(23, 59, 59); // 終了日の 23:59:59
 
-        // カレンダーの各日付を週ごとに分けて格納
-        List<LocalDate> week = new ArrayList<>();
-        LocalDate currentDate = startDate;
-        while (!currentDate.isAfter(endDate)) {
-            week.add(currentDate);
-            if (week.size() == 7) {
-                monthList.add(new ArrayList<>(week)); // 1週間分を追加
-                week.clear(); // リセット
-            }
-            currentDate = currentDate.plusDays(1);
-        }
-        
-        // ★ 全タスクを取得
-        List<Tasks> allTasks = repo.findAll(); //追加
+List<Tasks> tasksList;
+if (user.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
+    // 管理者の場合、すべてのタスクを取得
+    tasksList = repo.findAllByDateBetween(fromDateTime, toDateTime);
+} else {
+    // 一般ユーザーの場合、自分のタスクのみ取得
+    tasksList = repo.findByDateBetween(fromDateTime, toDateTime, user.getUsername());
+}
 
-        // ★ ユーザーの権限に応じてタスクをフィルタリング
-        List<Tasks> filteredTasks = new ArrayList<>();
-        if (user.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
-            filteredTasks = allTasks;  // 管理者はすべてのタスクを表示
-        } else {
-            for (Tasks task : allTasks) {
-                if (task.getName().equals(user.getUsername())) {
-                    filteredTasks.add(task);  // 自分のタスクだけを追加
-                }
-            }
-        }
 
-        // タスクの取得とマッピング
-        //List<Tasks> list = repo.findAll(); 無効化 
-        MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
-        for (Tasks task : filteredTasks) {
-            taskMap.add(task.getDate(), task);
-        }
+MultiValueMap<LocalDate, Tasks> taskMap = new LinkedMultiValueMap<>();
+for (Tasks task : tasksList) {
+    taskMap.add(task.getDate(), task);
+}
 
-        // 月表示の前後リンク
-        LocalDate prev = firstDayOfMonth.minusMonths(1); 
-        LocalDate next = firstDayOfMonth.plusMonths(1); 
 
-        model.addAttribute("prev", prev);
-        model.addAttribute("next", next);
-        model.addAttribute("matrix", monthList);
-        model.addAttribute("tasks", taskMap);
+int year = firstDayOfMonth.getYear();
+int month = firstDayOfMonth.getMonthValue();
+String yearMonth = String.format("%d年%02d月", year, month);
+model.addAttribute("month", yearMonth);
 
-        return "/main";
-    }
+// カレンダーを格納する2次元リスト
+List<List<LocalDate>> monthList = new ArrayList<>();
 
-    
+// カレンダーの終了日（翌月の最初の週の土曜日）
+LocalDate endDate = lastDayOfMonth.plusDays(7 - lastDayOfMonth.getDayOfWeek().getValue() % 7);
+// カレンダーの開始日（前月の最後の週の月曜日）
+LocalDate startDate = firstDayOfMonth.minusDays(firstDayOfMonth.getDayOfWeek().getValue() % 7);
+
+// カレンダーの各日付を週ごとに分けて格納
+List<LocalDate> week = new ArrayList<>();
+LocalDate currentDate = startDate;
+while (!currentDate.isAfter(endDate)) {
+week.add(currentDate);
+if (week.size() == 7) {
+monthList.add(new ArrayList<>(week)); // 1週間分を追加
+week.clear(); // リセット
+}
+currentDate = currentDate.plusDays(1);
+}
+
+// 月表示の前後リンク
+LocalDate prev = firstDayOfMonth.minusMonths(1);
+LocalDate next = firstDayOfMonth.plusMonths(1);
+
+model.addAttribute("prev", prev);
+model.addAttribute("next", next);
+model.addAttribute("matrix", monthList);
+model.addAttribute("tasks", taskMap);
+
+return "/main";
+}
+
     
 //★------------------------------------------------------------------------------------------------------------------★
     
@@ -184,7 +164,7 @@ public class TaskController {
     	
         if (bindingResult.hasErrors()) {
             model.addAttribute("taskForm", taskForm);
-            return "create";  // エラーがあれば登録画面に戻す
+            return "redirect:/create";  // エラーがあれば登録画面に戻す
         }
 
         // タスクを作成して、必要な情報を設定
