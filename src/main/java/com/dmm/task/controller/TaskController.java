@@ -75,8 +75,7 @@ public class TaskController {
             tasksList = repo.findAllByDateBetween(fromDateTime, toDateTime);
         } else {
             // 一般ユーザーの場合、自分のタスクのみ取得
-            tasksList = repo.findByDateBetween(fromDateTime, toDateTime, user.getName());
-
+            tasksList = repo.findByDateBetween(fromDateTime, toDateTime, user.getUsername());
         }
 
         // タスクのマッピング
@@ -143,32 +142,30 @@ return "/main";
     
     //GETは 画面表示、POSTはDB保存
     
-    
     @GetMapping("/main/create/{date}")
     public String create(Model model, 
-                         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime date) {
+                         @PathVariable String date) {
+        // Stringの日付をLocalDateTimeに変換
+        LocalDateTime localDateTime = LocalDateTime.parse(date);
+
         TaskForm taskForm = new TaskForm();
-        taskForm.setDate(date);  // 受け取った LocalDateTime をセット
+        taskForm.setDate(localDateTime);  // 受け取った LocalDateTime をセット
         model.addAttribute("taskForm", taskForm);  // ビューに渡す
         return "create";
     }
 
-
     // @PathVariableはURLのパス部分からデータを取得するアノテーション
-
 
     @PostMapping("/main/create")
     public String createTask(@Validated TaskForm taskForm,
-    						@RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime date,
-    						BindingResult bindingResult, 
-                            @AuthenticationPrincipal AccountUserDetails user, Model model) {
+                             @RequestParam("date") @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime date,
+                             BindingResult bindingResult, 
+                             @AuthenticationPrincipal AccountUserDetails user, Model model) {
 
-    	
         // バリデーションエラー(TaskFormで定義)があるかどうかチェック
-    	
         if (bindingResult.hasErrors()) {
             model.addAttribute("taskForm", taskForm);
-            return "redirect:/create";  // エラーがあれば登録画面に戻す
+            return "create";  // エラーがあれば登録画面に戻す
         }
 
         // タスクを作成して、必要な情報を設定
@@ -176,14 +173,14 @@ return "/main";
         task.setName(user.getName());  // ログインユーザー名をセット
         task.setTitle(taskForm.getTitle());  // タイトルをフォームから設定
         task.setText(taskForm.getText());  // テキストをフォームから設定
-        task.setDate(taskForm.getDate());  // LocalDateTime をそのままセット
-
+        task.setDate(date);  // LocalDateTime をそのままセット
 
         // タスクを保存
         repo.save(task);
 
         return "redirect:/main";  // 保存後、カレンダー画面へリダイレクト
     }
+
 
 
 
@@ -250,4 +247,3 @@ return "/main";
         return "redirect:/main";  // 削除後、カレンダー画面へリダイレクト
     }
 }
-
